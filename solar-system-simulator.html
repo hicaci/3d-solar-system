@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>太阳系行星运行模拟器 - 小学生教学版</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            space: '#0a0a23',
+            sun: '#ffcc00',
+            mercury: '#a9a9a9',
+            venus: '#e6c26e',
+            earth: '#6495ed',
+            mars: '#ff6347',
+            jupiter: '#e6b88a',
+            saturn: '#f5deb3',
+            uranus: '#e0ffff',
+            neptune: '#4169e1',
+            pluto: '#d8bfd8',
+          },
+          fontFamily: {
+            comic: ['Comic Sans MS', 'cursive'],
+          },
+        },
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .text-shadow {
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      }
+      .glow {
+        box-shadow: 0 0 15px rgba(255, 204, 0, 0.8);
+      }
+      .planet-shadow {
+        filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
+      }
+      .slider-thumb {
+        @apply appearance-none w-6 h-6 rounded-full bg-blue-500 cursor-pointer;
+      }
+      .slider-track {
+        @apply appearance-none h-2 rounded-lg bg-gray-300;
+      }
+    }
+  </style>
+</head>
+<body class="bg-space text-white min-h-screen font-comic">
+  <div class="container mx-auto px-4 py-8">
+    <!-- 标题区域 -->
+    <header class="text-center mb-8">
+      <h1 class="text-4xl md:text-5xl font-bold text-shadow mb-2">
+        <i class="fa fa-sun-o text-sun mr-3"></i>太阳系行星运行模拟器
+      </h1>
+      <p class="text-xl text-blue-200">探索太阳系的奥秘，了解行星的运行规律</p>
+    </header>
+
+    <!-- 主内容区域 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- 左侧控制面板 -->
+      <div class="lg:col-span-1 bg-gray-900 rounded-xl p-6 shadow-lg">
+        <h2 class="text-2xl font-bold mb-6 text-center border-b border-blue-500 pb-2">
+          <i class="fa fa-sliders mr-2"></i>时间控制
+        </h2>
+
+        <!-- 日期输入 -->
+        <div class="mb-6">
+          <label class="block text-lg mb-2">选择日期</label>
+          <div class="flex flex-col md:flex-row gap-4">
+            <input type="date" id="date-input" class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white">
+            <button id="reset-date" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors">
+              <i class="fa fa-refresh mr-1"></i>重置为今天
+            </button>
+          </div>
+        </div>
+
+        <!-- 日期滑块 -->
+        <div class="mb-6">
+          <label class="block text-lg mb-2">时间滑块</label>
+          <input type="range" id="time-slider" min="0" max="365" value="0" class="slider-track w-full mb-2">
+          <div class="flex justify-between text-sm text-gray-400">
+            <span>1月1日</span>
+            <span>12月31日</span>
+          </div>
+        </div>
+
+        <!-- 当前日期显示 -->
+        <div class="mb-6 bg-gray-800 rounded-lg p-4">
+          <h3 class="text-lg font-bold mb-2">当前模拟日期</h3>
+          <p id="current-date" class="text-xl text-blue-300 font-bold">2024年1月1日</p>
+        </div>
+
+        <!-- 控制按钮 -->
+        <div class="flex flex-wrap gap-3 justify-center">
+          <button id="zoom-in" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors">
+            <i class="fa fa-search-plus mr-1"></i>放大
+          </button>
+          <button id="zoom-out" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors">
+            <i class="fa fa-search-minus mr-1"></i>缩小
+          </button>
+          <button id="reset-view" class="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg transition-colors">
+            <i class="fa fa-home mr-1"></i>重置视图
+          </button>
+        </div>
+      </div>
+
+      <!-- 中间画布区域 -->
+      <div class="lg:col-span-2">
+        <div class="bg-gray-900 rounded-xl p-4 md:p-6 shadow-lg">
+          <h2 class="text-2xl font-bold mb-4 text-center border-b border-blue-500 pb-2">
+            <i class="fa fa-globe mr-2"></i>太阳系模拟
+          </h2>
+          
+          <!-- 画布容器 -->
+          <div class="relative">
+            <canvas id="solar-system-canvas" class="w-full h-[500px] md:h-[600px] bg-space rounded-lg"></canvas>
+            <!-- 加载指示器 -->
+            <div id="loading" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
+              <div class="text-2xl font-bold">正在计算行星位置...</div>
+            </div>
+          </div>
+
+          <!-- 操作提示 -->
+          <div class="mt-4 text-center text-sm text-gray-300">
+            <p>💡 提示：点击行星查看详细信息 | 拖动滑块改变日期 | 使用按钮缩放视图</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 行星信息区域 -->
+    <div id="planet-info" class="mt-8 bg-gray-900 rounded-xl p-6 shadow-lg hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold" id="planet-name">地球</h2>
+        <button id="close-info" class="bg-gray-700 hover:bg-gray-600 p-2 rounded-full">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-gray-800 rounded-lg p-4">
+          <h3 class="text-lg font-bold mb-2 text-blue-300">基本信息</h3>
+          <ul class="space-y-2">
+            <li><strong>与太阳距离：</strong><span id="planet-distance">1.00 AU</span></li>
+            <li><strong>运行周期：</strong><span id="planet-period">365.25 天</span></li>
+            <li><strong>直径：</strong><span id="planet-diameter">12,742 km</span></li>
+            <li><strong>表面温度：</strong><span id="planet-temperature">15°C</span></li>
+          </ul>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-4">
+          <h3 class="text-lg font-bold mb-2 text-blue-300">趣味知识</h3>
+          <p id="planet-fact" class="text-gray-300">地球是太阳系中唯一已知存在生命的行星，它表面有71%被水覆盖，因此从太空看呈现蓝色。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 教育信息区域 -->
+    <div class="mt-8 bg-gray-900 rounded-xl p-6 shadow-lg">
+      <h2 class="text-2xl font-bold mb-4 text-center border-b border-blue-500 pb-2">
+        <i class="fa fa-book mr-2"></i>天文小知识
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="text-xl font-bold mb-2 text-yellow-300">太阳系的组成</h3>
+          <p class="mb-4">太阳系由太阳、八大行星、矮行星、卫星、小行星和彗星组成。八大行星按照离太阳的距离从近到远依次是：水星、金星、地球、火星、木星、土星、天王星和海王星。</p>
+          <h3 class="text-xl font-bold mb-2 text-yellow-300">行星运动规律</h3>
+          <p>行星围绕太阳运行的轨道是椭圆形的，太阳位于椭圆的一个焦点上。离太阳越近的行星，运行速度越快，公转周期越短。</p>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold mb-2 text-yellow-300">什么是天文单位？</h3>
+          <p class="mb-4">天文单位（AU）是天文学中计量天体之间距离的一种单位，其数值取地球和太阳之间的平均距离，约为1.5亿公里。使用天文单位可以更方便地表示太阳系中天体之间的距离。</p>
+          <h3 class="text-xl font-bold mb-2 text-yellow-300">冥王星的故事</h3>
+          <p>冥王星曾经被认为是第九大行星，但在2006年被国际天文学联合会重新分类为矮行星。这是因为科学家在太阳系边缘发现了更多类似冥王星大小的天体。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 页脚 -->
+  <footer class="mt-12 text-center py-6 border-t border-gray-800">
+    <p>© 2024 太阳系行星运行模拟器 - 小学生教学版</p>
+    <p class="text-sm text-gray-400 mt-2">探索宇宙奥秘，培养科学兴趣</p>
+  </footer>
+
+  <script>
+    // 行星数据
+    const planets = [
+      {
+        name: "水星",
+        color: "#a9a9a9",
+        distance: 0.387,
+        period: 87.97,
+        diameter: 4879,
+        temperature: "-173°C 至 427°C",
+        fact: "水星是太阳系中最小的行星，也是离太阳最近的行星。它表面布满了陨石坑，看起来很像月球。",
+        size: 4
+      },
+      {
+        name: "金星",
+        color: "#e6c26e",
+        distance: 0.723,
+        period: 224.70,
+        diameter: 12104,
+        temperature: "462°C",
+        fact: "金星是太阳系中最热的行星，表面温度高达462°C，足以熔化铅。它被厚厚的大气层包围，主要成分是二氧化碳。",
+        size: 6
+      },
+      {
+        name: "地球",
+        color: "#6495ed",
+        distance: 1.000,
+        period: 365.25,
+        diameter: 12742,
+        temperature: "-88°C 至 58°C",
+        fact: "地球是太阳系中唯一已知存在生命的行星，它表面有71%被水覆盖，因此从太空看呈现蓝色。",
+        size: 6
+      },
+      {
+        name: "火星",
+        color: "#ff6347",
+        distance: 1.524,
+        period: 686.98,
+        diameter: 6779,
+        temperature: "-153°C 至 20°C",
+        fact: "火星被称为'红色星球'，因为它表面富含氧化铁（铁锈）。火星上有太阳系中最高的山脉——奥林匹斯山，高达22公里。",
+        size: 5
+      },
+      {
+        name: "木星",
+        color: "#e6b88a",
+        distance: 5.203,
+        period: 4332.71,
+        diameter: 139820,
+        temperature: "-145°C",
+        fact: "木星是太阳系中最大的行星，它的质量是其他所有行星总和的2.5倍。木星表面有一个著名的大红斑，是一个持续了几百年的巨大风暴。",
+        size: 12
+      },
+      {
+        name: "土星",
+        color: "#f5deb3",
+        distance: 9.539,
+        period: 10759.50,
+        diameter: 116460,
+        temperature: "-178°C",
+        fact: "土星以其美丽的环系而闻名，这些环由无数小冰块和岩石碎片组成。土星的密度非常小，如果有一个足够大的水池，土星会漂浮在水面上。",
+        size: 10
+      },
+      {
+        name: "天王星",
+        color: "#e0ffff",
+        distance: 19.182,
+        period: 30685.00,
+        diameter: 50724,
+        temperature: "-224°C",
+        fact: "天王星的自转轴与公转轨道几乎垂直，就像侧躺着绕太阳公转。它是第一颗通过望远镜发现的行星。",
+        size: 8
+      },
+      {
+        name: "海王星",
+        color: "#4169e1",
+        distance: 30.058,
+        period: 60190.00,
+        diameter: 49244,
+        temperature: "-218°C",
+        fact: "海王星是太阳系中最远的行星，它有着强烈的风暴，风速可达每小时2100公里，是太阳系中风速最快的行星。",
+        size: 7
+      },
+      {
+        name: "冥王星",
+        color: "#d8bfd8",
+        distance: 39.482,
+        period: 90560.00,
+        diameter: 2370,
+        temperature: "-229°C",
+        fact: "冥王星曾经被认为是第九大行星，但在2006年被重新分类为矮行星。它有一个巨大的卫星——卡戎，两者的大小相差不大，就像一对双行星。",
+        size: 3
+      }
+    ];
+
+    // 全局变量
+    let canvas, ctx;
+    let centerX, centerY;
+    let scale = 1;
+    let selectedDate = new Date();
+    let animationId;
+
+    // 初始化
+    function init() {
+      // 设置当前日期为默认值
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('date-input').value = today;
+      document.getElementById('current-date').textContent = formatDate(selectedDate);
+
+      // 初始化画布
+      canvas = document.getElementById('solar-system-canvas');
+      ctx = canvas.getContext('2d');
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      // 事件监听
+      document.getElementById('date-input').addEventListener('change', handleDateChange);
+      document.getElementById('time-slider').addEventListener('input', handleSliderChange);
+      document.getElementById('reset-date').addEventListener('click', resetDate);
+      document.getElementById('zoom-in').addEventListener('click', () => zoom(1.2));
+      document.getElementById('zoom-out').addEventListener('click', () => zoom(0.8));
+      document.getElementById('reset-view').addEventListener('click', resetView);
+      document.getElementById('close-info').addEventListener('click', closeInfo);
+
+      // 画布点击事件
+      canvas.addEventListener('click', handleCanvasClick);
+
+      // 开始动画
+      animate();
+    }
+
+    // 调整画布大小
+    function resizeCanvas() {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      centerX = canvas.width / 2;
+      centerY = canvas.height / 2;
+      drawSolarSystem();
+    }
+
+    // 格式化日期
+    function formatDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}年${month}月${day}日`;
+    }
+
+    // 处理日期变化
+    function handleDateChange(e) {
+      const dateStr = e.target.value;
+      if (dateStr) {
+        selectedDate = new Date(dateStr);
+        updateSliderFromDate();
+        document.getElementById('current-date').textContent = formatDate(selectedDate);
+        drawSolarSystem();
+      }
+    }
+
+    // 处理滑块变化
+    function handleSliderChange(e) {
+      const dayOfYear = parseInt(e.target.value);
+      const date = new Date(selectedDate.getFullYear(), 0, dayOfYear);
+      selectedDate = date;
+      document.getElementById('date-input').value = date.toISOString().split('T')[0];
+      document.getElementById('current-date').textContent = formatDate(selectedDate);
+      drawSolarSystem();
+    }
+
+    // 根据日期更新滑块
+    function updateSliderFromDate() {
+      const startOfYear = new Date(selectedDate.getFullYear(), 0, 0);
+      const diffTime = selectedDate - startOfYear;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      document.getElementById('time-slider').value = diffDays;
+    }
+
+    // 重置日期为今天
+    function resetDate() {
+      selectedDate = new Date();
+      const today = selectedDate.toISOString().split('T')[0];
+      document.getElementById('date-input').value = today;
+      updateSliderFromDate();
+      document.getElementById('current-date').textContent = formatDate(selectedDate);
+      drawSolarSystem();
+    }
+
+    // 缩放功能
+    function zoom(factor) {
+      scale *= factor;
+      // 限制缩放范围
+      scale = Math.max(0.1, Math.min(5, scale));
+      drawSolarSystem();
+    }
+
+    // 重置视图
+    function resetView() {
+      scale = 1;
+      drawSolarSystem();
+    }
+
+    // 计算行星位置
+    function calculatePlanetPosition(planet, date) {
+      // 计算从2000年1月1日到给定日期的天数
+      const epoch = new Date(2000, 0, 1);
+      const diffTime = date - epoch;
+      const diffDays = diffTime / (1000 * 60 * 60 * 24);
+      
+      // 计算行星的轨道角度
+      const angle = (diffDays / planet.period) * Math.PI * 2;
+      
+      // 计算距离（缩放以适应画布）
+      const distance = planet.distance * 50 * scale;
+      
+      // 计算坐标
+      const x = centerX + Math.cos(angle) * distance;
+      const y = centerY + Math.sin(angle) * distance;
+      
+      return { x, y, angle, distance };
+    }
+
+    // 绘制太阳系
+    function drawSolarSystem() {
+      // 清空画布
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 绘制背景星星
+      drawStars();
+      
+      // 绘制轨道
+      drawOrbits();
+      
+      // 绘制太阳
+      drawSun();
+      
+      // 绘制行星
+      drawPlanets();
+    }
+
+    // 绘制星星
+    function drawStars() {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      for (let i = 0; i < 200; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const size = Math.random() * 2;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 绘制轨道
+    function drawOrbits() {
+      planets.forEach(planet => {
+        const radius = planet.distance * 50 * scale;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(100, 149, 237, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      });
+    }
+
+    // 绘制太阳
+    function drawSun() {
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 15 * scale, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffcc00';
+      ctx.fill();
+      
+      // 太阳光芒
+      ctx.strokeStyle = '#ffcc00';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const startX = centerX + Math.cos(angle) * 15 * scale;
+        const startY = centerY + Math.sin(angle) * 15 * scale;
+        const endX = centerX + Math.cos(angle) * 25 * scale;
+        const endY = centerY + Math.sin(angle) * 25 * scale;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+      }
+    }
+
+    // 绘制行星
+    function drawPlanets() {
+      planets.forEach(planet => {
+        const pos = calculatePlanetPosition(planet, selectedDate);
+        
+        // 保存行星位置用于点击检测
+        planet.x = pos.x;
+        planet.y = pos.y;
+        planet.radius = planet.size * scale;
+        
+        // 绘制行星
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, planet.size * scale, 0, Math.PI * 2);
+        ctx.fillStyle = planet.color;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // 为土星绘制环
+        if (planet.name === '土星') {
+          ctx.beginPath();
+          ctx.ellipse(pos.x, pos.y, planet.size * scale * 1.8, planet.size * scale * 0.6, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(245, 222, 179, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      });
+    }
+
+    // 处理画布点击
+    function handleCanvasClick(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      
+      // 检查是否点击了行星
+      for (const planet of planets) {
+        if (planet.x && planet.y) {
+          const distance = Math.sqrt((clickX - planet.x) ** 2 + (clickY - planet.y) ** 2);
+          if (distance <= planet.radius * 2) {
+            showPlanetInfo(planet);
+            return;
+          }
+        }
+      }
+    }
+
+    // 显示行星信息
+    function showPlanetInfo(planet) {
+      document.getElementById('planet-name').textContent = planet.name;
+      document.getElementById('planet-distance').textContent = `${planet.distance.toFixed(3)} AU`;
+      document.getElementById('planet-period').textContent = `${planet.period.toFixed(2)} 天`;
+      document.getElementById('planet-diameter').textContent = `${planet.diameter.toLocaleString()} km`;
+      document.getElementById('planet-temperature').textContent = planet.temperature;
+      document.getElementById('planet-fact').textContent = planet.fact;
+      document.getElementById('planet-info').classList.remove('hidden');
+    }
+
+    // 关闭信息面板
+    function closeInfo() {
+      document.getElementById('planet-info').classList.add('hidden');
+    }
+
+    // 动画循环
+    function animate() {
+      drawSolarSystem();
+      animationId = requestAnimationFrame(animate);
+    }
+
+    // 页面加载完成后初始化
+    window.addEventListener('load', () => {
+      // 隐藏加载指示器
+      setTimeout(() => {
+        document.getElementById('loading').style.display = 'none';
+        init();
+      }, 1000);
+    });
+  </script>
+</body>
+</html>

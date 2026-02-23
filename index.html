@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D太阳系行星系统 - 高端科技版</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000000;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #ffffff;
+    }
+
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .planet-label {
+      position: absolute;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.9), rgba(9, 9, 121, 0.9));
+      border: 1px solid rgba(0, 212, 255, 0.5);
+      border-radius: 20px;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
+      pointer-events: none;
+      white-space: nowrap;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.6), 
+                  inset 0 0 10px rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      text-shadow: 0 0 10px rgba(0, 212, 255, 0.8);
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      letter-spacing: 1px;
+    }
+
+    .planet-label.visible {
+      opacity: 1;
+    }
+
+    .planet-label::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(45deg, #00d4ff, #090979, #00d4ff);
+      border-radius: 22px;
+      z-index: -1;
+      opacity: 0.5;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.05); }
+    }
+
+    .ui-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00d4ff 0%, #0979d4 50%, #00d4ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+      text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+      letter-spacing: 2px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: rgba(0, 212, 255, 0.7);
+      letter-spacing: 1px;
+    }
+
+    .date-panel {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(9, 9, 121, 0.1));
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      border-radius: 15px;
+      padding: 20px 30px;
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      min-width: 400px;
+      cursor: move;
+      user-select: none;
+    }
+
+    .date-panel-header {
+      cursor: move;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+      margin-bottom: 15px;
+    }
+
+    .date-panel-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #00d4ff;
+      text-align: center;
+      letter-spacing: 1px;
+      cursor: move;
+    }
+
+    .date-panel-content {
+      cursor: default;
+      user-select: text;
+    }
+
+    .date-input-group {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .date-input-label {
+      font-size: 13px;
+      color: rgba(0, 212, 255, 0.8);
+      min-width: 70px;
+    }
+
+    .date-input {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(0, 212, 255, 0.4);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #ffffff;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    .date-input:focus {
+      border-color: rgba(0, 212, 255, 0.8);
+      box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+    }
+
+    .date-input::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      cursor: pointer;
+    }
+
+    .date-display {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      border-radius: 8px;
+      padding: 10px 15px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: 600;
+      color: #00d4ff;
+      letter-spacing: 1px;
+    }
+
+    .slider-group {
+      margin-top: 15px;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: rgba(0, 212, 255, 0.6);
+      margin-bottom: 8px;
+    }
+
+    .date-slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(0, 212, 255, 0.2);
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+
+    .date-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00d4ff, #0979d4);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 212, 255, 0.8);
+      transition: all 0.2s ease;
+    }
+
+    .date-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 15px rgba(0, 212, 255, 1);
+    }
+
+    .date-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00d4ff, #0979d4);
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 10px rgba(0, 212, 255, 0.8);
+    }
+
+    .quick-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      justify-content: center;
+    }
+
+    .quick-btn {
+      padding: 6px 12px;
+      background: rgba(0, 212, 255, 0.2);
+      border: 1px solid rgba(0, 212, 255, 0.4);
+      border-radius: 15px;
+      color: #00d4ff;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .quick-btn:hover {
+      background: rgba(0, 212, 255, 0.4);
+      border-color: rgba(0, 212, 255, 0.8);
+    }
+
+    .quick-btn.active {
+      background: rgba(0, 212, 255, 0.5);
+      border-color: rgba(0, 212, 255, 1);
+      box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+    }
+
+    .controls-panel {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+      z-index: 100;
+      align-items: center;
+    }
+
+    .planet-selector {
+      padding: 10px 15px;
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(9, 9, 121, 0.2));
+      border: 1px solid rgba(0, 212, 255, 0.4);
+      border-radius: 25px;
+      color: #00d4ff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      letter-spacing: 1px;
+      outline: none;
+      min-width: 120px;
+    }
+
+    .planet-selector:hover {
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.4), rgba(9, 9, 121, 0.4));
+      border-color: rgba(0, 212, 255, 0.8);
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+    }
+
+    .planet-selector option {
+      background: #0a0a23;
+      color: #00d4ff;
+      padding: 10px;
+    }
+
+    .control-btn {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(9, 9, 121, 0.2));
+      border: 1px solid rgba(0, 212, 255, 0.4);
+      border-radius: 25px;
+      color: #00d4ff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      letter-spacing: 1px;
+    }
+
+    .control-btn:hover {
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.4), rgba(9, 9, 121, 0.4));
+      border-color: rgba(0, 212, 255, 0.8);
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .info-panel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(9, 9, 121, 0.1));
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      border-radius: 15px;
+      padding: 20px;
+      min-width: 300px;
+      max-width: 350px;
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      display: none;
+    }
+
+    .info-panel.visible {
+      display: block;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .info-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #00d4ff;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+    }
+
+    .info-item {
+      margin: 10px 0;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .info-label {
+      color: rgba(0, 212, 255, 0.7);
+      font-weight: 600;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      width: 25px;
+      height: 25px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      border-radius: 50%;
+      color: #00d4ff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .close-btn:hover {
+      background: rgba(0, 212, 255, 0.2);
+      border-color: rgba(0, 212, 255, 0.6);
+    }
+
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 1000;
+    }
+
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 3px solid rgba(0, 212, 255, 0.2);
+      border-top-color: #00d4ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: #00d4ff;
+      font-size: 16px;
+      letter-spacing: 2px;
+    }
+
+    .hint {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(0, 212, 255, 0.5);
+      font-size: 12px;
+      letter-spacing: 1px;
+      z-index: 100;
+    }
+
+    .knowledge-panel {
+      position: absolute;
+      bottom: 80px;
+      right: 20px;
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(9, 9, 121, 0.1));
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      border-radius: 15px;
+      padding: 15px;
+      max-width: 280px;
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .knowledge-title {
+      color: #00d4ff;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .knowledge-text {
+      color: rgba(255, 255, 255, 0.7);
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container">
+    <div class="loading" id="loading">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">正在加载3D行星系统...</div>
+    </div>
+
+    <div class="ui-overlay">
+      <div class="title">太阳系行星系统</div>
+      <div class="subtitle">SOLAR SYSTEM EXPLORER</div>
+    </div>
+
+    <div class="date-panel" id="date-panel">
+      <div class="date-panel-header" id="date-panel-header">
+        <div class="date-panel-title">⏱ 时间控制器 <span style="font-size: 10px; opacity: 0.6;">[可拖动]</span></div>
+      </div>
+      <div class="date-panel-content">
+        <div class="date-input-group">
+          <span class="date-input-label">选择日期：</span>
+          <input type="date" id="date-input" class="date-input">
+        </div>
+        <div class="date-display" id="current-date">2024年01月01日</div>
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>年初</span>
+            <span>年末</span>
+          </div>
+          <input type="range" id="date-slider" class="date-slider" min="0" max="365" value="0">
+        </div>
+        <div class="quick-buttons">
+          <span style="font-size: 12px; color: rgba(0, 212, 255, 0.7); margin-right: 10px;">步伐：</span>
+          <button class="quick-btn active" id="step-day" data-step="1">天</button>
+          <button class="quick-btn" id="step-week" data-step="7">周</button>
+          <button class="quick-btn" id="step-month" data-step="30">月</button>
+          <button class="quick-btn" id="step-year" data-step="365">年</button>
+        </div>
+        <div class="navigation-buttons" style="display: flex; gap: 10px; margin-top: 10px; justify-content: center;">
+          <button class="quick-btn" id="prev-btn" style="padding: 8px 20px;">◀ 前退</button>
+          <button class="quick-btn" id="today-btn" style="padding: 8px 20px;">今天</button>
+          <button class="quick-btn" id="next-btn" style="padding: 8px 20px;">前进 ▶</button>
+        </div>
+        <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(0, 212, 255, 0.2); text-align: center;">
+          <button class="quick-btn active" id="realtime-btn" style="padding: 8px 15px;">🌐 实时数据</button>
+          <button class="quick-btn" id="simulate-btn" style="padding: 8px 15px;">📊 模拟模式</button>
+          <div id="data-status" style="font-size: 10px; color: rgba(0, 212, 255, 0.5); margin-top: 5px;">使用NASA JPL实时数据</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-panel" id="info-panel">
+      <button class="close-btn" id="close-info">×</button>
+      <div class="info-title" id="planet-name">地球</div>
+      <div class="info-item">
+        <span class="info-label">英文名：</span>
+        <span id="planet-name-en">Earth</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">距离太阳：</span>
+        <span id="planet-distance">1.00 AU</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">公转周期：</span>
+        <span id="planet-period">365.25 天</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">轨道倾角：</span>
+        <span id="planet-inclination">0.00°</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">直径：</span>
+        <span id="planet-diameter">12,742 km</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">表面温度：</span>
+        <span id="planet-temperature">-88°C 至 58°C</span>
+      </div>
+      <div class="info-item" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(0, 212, 255, 0.2);">
+        <span class="info-label">趣味知识：</span>
+        <div id="planet-fact" style="color: rgba(255, 255, 255, 0.6); margin-top: 5px;"></div>
+      </div>
+    </div>
+
+    <div class="knowledge-panel">
+      <div class="knowledge-title">天文小知识</div>
+      <div class="knowledge-text">
+        行星轨道并非都在同一平面上。水星轨道倾角最大（7°），其他行星轨道与地球轨道面（黄道面）的夹角各不相同。这模拟了真实的行星轨道倾斜情况。
+      </div>
+    </div>
+
+    <div class="controls-panel">
+      <select id="planet-selector" class="planet-selector">
+        <option value="sun">☀ 太阳</option>
+        <option value="0">☿ 水星</option>
+        <option value="1">♀ 金星</option>
+        <option value="2">⊕ 地球</option>
+        <option value="3">♂ 火星</option>
+        <option value="4">♃ 木星</option>
+        <option value="5">♄ 土星</option>
+        <option value="6">♅ 天王星</option>
+        <option value="7">♆ 海王星</option>
+        <option value="8">♇ 冥王星</option>
+      </select>
+      <button class="control-btn" id="toggle-orbits">显示轨道</button>
+      <button class="control-btn" id="toggle-labels">显示标签</button>
+      <button class="control-btn" id="reset-view">重置视图</button>
+      <button class="control-btn" id="auto-rotate">停止旋转</button>
+    </div>
+
+    <div class="hint">拖动鼠标旋转视角 | 滚轮缩放 | 点击任意位置设置缩放中心 | 点击行星查看详情</div>
+  </div>
+
+  <div class="planet-label" id="planet-label"></div>
+
+  <script>
+    let scene, camera, renderer, controls;
+    let sun = null;
+    let planets = [];
+    let orbits = [];
+    let satellites = [];
+    let labels = [];
+    let raycaster, mouse;
+    let selectedPlanet = null;
+    let showOrbits = true;
+    let showLabels = false;
+    let autoRotate = true;
+    let selectedDate = new Date();
+    let isAnimating = false;
+    let zoomTarget = null;
+    let isZoomTargetSet = false;
+    let textureLoader = null;
+    let useRealTimeData = true;
+    let realTimeUpdateInterval = null;
+
+    const J2000 = new Date('2000-01-01T12:00:00Z');
+
+    const NASA_API_BASE = 'https://ssd.jpl.nasa.gov/api/horizons.api';
+
+    const planetHorizonsId = {
+      mercury: '199',
+      venus: '299',
+      earth: '399',
+      mars: '499',
+      jupiter: '599',
+      saturn: '699',
+      uranus: '799',
+      neptune: '899',
+      pluto: '999'
+    };
+
+    const textureURLs = {
+      sun: 'https://www.solarsystemscope.com/textures/download/2k_sun.jpg',
+      mercury: 'https://www.solarsystemscope.com/textures/download/2k_mercury.jpg',
+      venus: 'https://www.solarsystemscope.com/textures/download/2k_venus_surface.jpg',
+      earth: 'https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg',
+      mars: 'https://www.solarsystemscope.com/textures/download/2k_mars.jpg',
+      jupiter: 'https://www.solarsystemscope.com/textures/download/2k_jupiter.jpg',
+      saturn: 'https://www.solarsystemscope.com/textures/download/2k_saturn.jpg',
+      uranus: 'https://www.solarsystemscope.com/textures/download/2k_uranus.jpg',
+      neptune: 'https://www.solarsystemscope.com/textures/download/2k_neptune.jpg',
+      pluto: 'https://www.solarsystemscope.com/textures/download/2k_pluto.jpg',
+      moon: 'https://www.solarsystemscope.com/textures/download/2k_moon.jpg',
+      saturnRing: 'https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png'
+    };
+
+    const satelliteData = {
+      earth: [
+        { name: "月球", nameEn: "Moon", distance: 2.5, size: 0.35, color: 0xcccccc, period: 27.3 }
+      ],
+      mars: [
+        { name: "火卫一", nameEn: "Phobos", distance: 1.5, size: 0.1, color: 0x8b7355, period: 0.32 },
+        { name: "火卫二", nameEn: "Deimos", distance: 2.0, size: 0.08, color: 0x8b7355, period: 1.26 }
+      ],
+      jupiter: [
+        { name: "木卫一（艾奥）", nameEn: "Io", distance: 5.5, size: 0.4, color: 0xffff00, period: 1.77 },
+        { name: "木卫二（欧罗巴）", nameEn: "Europa", distance: 7.0, size: 0.35, color: 0xf5f5dc, period: 3.55 },
+        { name: "木卫三（盖尼米德）", nameEn: "Ganymede", distance: 9.0, size: 0.5, color: 0x808080, period: 7.15 },
+        { name: "木卫四（卡里斯托）", nameEn: "Callisto", distance: 11.0, size: 0.45, color: 0x696969, period: 16.69 }
+      ],
+      saturn: [
+        { name: "土卫六（泰坦）", nameEn: "Titan", distance: 8.0, size: 0.5, color: 0xffa500, period: 15.95 },
+        { name: "土卫二（恩克拉多斯）", nameEn: "Enceladus", distance: 5.0, size: 0.2, color: 0xffffff, period: 1.37 },
+        { name: "土卫五（瑞亚）", nameEn: "Rhea", distance: 6.0, size: 0.25, color: 0xc0c0c0, period: 4.52 }
+      ],
+      uranus: [
+        { name: "天卫三（泰坦妮亚）", nameEn: "Titania", distance: 4.5, size: 0.2, color: 0xadd8e6, period: 8.71 },
+        { name: "天卫四（奥伯龙）", nameEn: "Oberon", distance: 5.5, size: 0.2, color: 0xb0c4de, period: 13.46 }
+      ],
+      neptune: [
+        { name: "海卫一（特里同）", nameEn: "Triton", distance: 4.0, size: 0.3, color: 0xffc0cb, period: 5.88 }
+      ],
+      pluto: [
+        { name: "卡戎", nameEn: "Charon", distance: 1.5, size: 0.25, color: 0x808080, period: 6.39 }
+      ]
+    };
+
+    const planetData = [
+      {
+        name: "水星",
+        nameEn: "Mercury",
+        distance: 0.387,
+        size: 0.8,
+        color: 0xa9a9a9,
+        period: 87.97,
+        rotationPeriod: 58.65,
+        diameter: 4879,
+        mass: "3.30 × 10²³ kg",
+        gravity: "3.7 m/s²",
+        satellites: 0,
+        temperature: "-173°C 至 427°C",
+        atmosphere: "极稀薄（钠、钾、氧）",
+        fact: "水星是太阳系中最小的行星，也是离太阳最近的行星。它表面布满了陨石坑，看起来很像月球。由于离太阳很近，水星上的一天相当于地球上的59天！",
+        discovery: "【2023年新发现】BepiColombo探测器发现水星表面存在更多水冰沉积，主要分布在永久阴影的极地陨石坑中。科学家还发现水星正在以每年约5厘米的速度收缩。",
+        orbitColor: 0x666666,
+        inclination: 7.0,
+        eccentricity: 0.206,
+        meanAnomalyJ2000: 174.796
+      },
+      {
+        name: "金星",
+        nameEn: "Venus",
+        distance: 0.723,
+        size: 1.2,
+        color: 0xe6c26e,
+        period: 224.70,
+        rotationPeriod: -243.02,
+        diameter: 12104,
+        mass: "4.87 × 10²⁴ kg",
+        gravity: "8.87 m/s²",
+        satellites: 0,
+        temperature: "462°C",
+        atmosphere: "二氧化碳（96.5%）、氮气",
+        fact: "金星是太阳系中最热的行星，表面温度高达462°C，足以熔化铅！它被厚厚的二氧化碳大气层包围，产生了强烈的温室效应。金星的自转方向与其他行星相反。",
+        discovery: "【2023年新发现】科学家在金星大气中检测到磷化氢气体，这可能是生命存在的迹象。新的雷达图像显示金星表面存在活跃的火山活动，最近可能发生过喷发。",
+        orbitColor: 0x996600,
+        inclination: 3.4,
+        eccentricity: 0.007,
+        meanAnomalyJ2000: 50.115
+      },
+      {
+        name: "地球",
+        nameEn: "Earth",
+        distance: 1.000,
+        size: 1.3,
+        color: 0x6495ed,
+        period: 365.25,
+        rotationPeriod: 0.997,
+        diameter: 12742,
+        mass: "5.97 × 10²⁴ kg",
+        gravity: "9.81 m/s²",
+        satellites: 1,
+        temperature: "-88°C 至 58°C",
+        atmosphere: "氮气（78%）、氧气（21%）",
+        fact: "地球是太阳系中唯一已知存在生命的行星！它表面有71%被水覆盖，因此从太空看呈现美丽的蓝色。地球有一颗天然卫星——月球，它对地球的潮汐有重要影响。",
+        discovery: "【2024年新发现】詹姆斯·韦伯太空望远镜发现了更多系外行星，科学家正在研究地球大气的演化历史。新的研究表明地球内核可能正在减速旋转。",
+        orbitColor: 0x0066ff,
+        inclination: 0.0,
+        eccentricity: 0.017,
+        meanAnomalyJ2000: 357.517
+      },
+      {
+        name: "火星",
+        nameEn: "Mars",
+        distance: 1.524,
+        size: 1.0,
+        color: 0xff6347,
+        period: 686.98,
+        rotationPeriod: 1.026,
+        diameter: 6779,
+        mass: "6.42 × 10²³ kg",
+        gravity: "3.71 m/s²",
+        satellites: 2,
+        temperature: "-153°C 至 20°C",
+        atmosphere: "二氧化碳（95%）、氮气",
+        fact: "火星被称为'红色星球'，因为它表面富含氧化铁（铁锈）。火星上有太阳系中最高的山脉——奥林匹斯山，高达22公里！火星的一天与地球几乎相同，约为24.6小时。",
+        discovery: "【2024年新发现】毅力号火星车发现了更多有机分子证据，火星地下可能存在液态水湖泊。科学家发现火星曾经拥有类似地球的磁场，但约40亿年前消失了。",
+        orbitColor: 0xff3300,
+        inclination: 1.9,
+        eccentricity: 0.093,
+        meanAnomalyJ2000: 19.373
+      },
+      {
+        name: "木星",
+        nameEn: "Jupiter",
+        distance: 5.203,
+        size: 3.5,
+        color: 0xe6b88a,
+        period: 4332.71,
+        rotationPeriod: 0.414,
+        diameter: 139820,
+        mass: "1.90 × 10²⁷ kg",
+        gravity: "24.79 m/s²",
+        satellites: 95,
+        temperature: "-145°C",
+        atmosphere: "氢气（90%）、氦气",
+        fact: "木星是太阳系中最大的行星，它的质量是其他所有行星总和的2.5倍！木星表面有一个著名的大红斑，这是一个持续了几百年的巨大风暴，比地球还要大。",
+        discovery: "【2023年新发现】朱诺号探测器发现木星大红斑正在缩小，但风暴深度比预期更深。木卫二欧罗巴的地下海洋可能含有生命所需的化学物质，NASA计划发射欧罗巴快船进行详细探测。",
+        orbitColor: 0xcc9966,
+        inclination: 1.3,
+        eccentricity: 0.049,
+        meanAnomalyJ2000: 20.020
+      },
+      {
+        name: "土星",
+        nameEn: "Saturn",
+        distance: 9.539,
+        size: 3.0,
+        color: 0xf5deb3,
+        period: 10759.50,
+        rotationPeriod: 0.444,
+        diameter: 116460,
+        mass: "5.68 × 10²⁶ kg",
+        gravity: "10.44 m/s²",
+        satellites: 146,
+        temperature: "-178°C",
+        atmosphere: "氢气（96%）、氦气",
+        fact: "土星以其美丽的环系而闻名，这些环由无数小冰块和岩石碎片组成。土星的密度非常小，如果有一个足够大的水池，土星会漂浮在水面上！它有146颗已知卫星。",
+        discovery: "【2023年新发现】卡西尼号数据显示土卫六泰坦拥有地下海洋，土卫二恩克拉多斯的冰喷泉中含有有机分子。土星环可能比之前认为的更年轻，只有约1亿年历史。",
+        orbitColor: 0xccaa77,
+        inclination: 2.5,
+        eccentricity: 0.057,
+        meanAnomalyJ2000: 317.020,
+        hasRing: true
+      },
+      {
+        name: "天王星",
+        nameEn: "Uranus",
+        distance: 19.182,
+        size: 2.0,
+        color: 0x87ceeb,
+        period: 30685.00,
+        diameter: 50724,
+        temperature: "-224°C",
+        fact: "天王星的自转轴与公转轨道几乎垂直，就像侧躺着绕太阳公转！它是第一颗通过望远镜发现的行星（1781年）。天王星呈现美丽的蓝绿色，是因为大气中含有甲烷。",
+        orbitColor: 0x66cccc,
+        inclination: 0.8,
+        eccentricity: 0.046,
+        meanAnomalyJ2000: 142.238
+      },
+      {
+        name: "海王星",
+        nameEn: "Neptune",
+        distance: 30.058,
+        size: 1.9,
+        color: 0x4169e1,
+        period: 60190.00,
+        diameter: 49244,
+        temperature: "-218°C",
+        fact: "海王星是太阳系中最远的行星，它有着强烈的风暴，风速可达每小时2100公里，是太阳系中风速最快的行星！海王星是通过数学计算预测位置后被发现的。",
+        orbitColor: 0x3366ff,
+        inclination: 1.8,
+        eccentricity: 0.011,
+        meanAnomalyJ2000: 256.228
+      },
+      {
+        name: "冥王星",
+        nameEn: "Pluto",
+        distance: 39.482,
+        size: 0.6,
+        color: 0xd8bfd8,
+        period: 90560.00,
+        diameter: 2370,
+        temperature: "-229°C",
+        fact: "冥王星曾经被认为是第九大行星，但在2006年被重新分类为矮行星。它有一个巨大的卫星——卡戎，两者的大小相差不大，就像一对双行星在太空中舞蹈。",
+        orbitColor: 0x996699,
+        inclination: 17.2,
+        eccentricity: 0.248,
+        meanAnomalyJ2000: 14.53
+      }
+    ];
+
+    function init() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000);
+
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
+      camera.position.set(0, 300, 500);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.minDistance = 10;
+      controls.maxDistance = 5000;
+      controls.autoRotate = autoRotate;
+      controls.autoRotateSpeed = 0.5;
+
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+
+      createSun();
+      createPlanets();
+      createOrbits();
+      addLights();
+
+      initDateControls();
+
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('click', onMouseClick);
+      
+      renderer.domElement.addEventListener('wheel', (event) => {
+        if (isZoomTargetSet && zoomTarget) {
+          event.preventDefault();
+          event.stopPropagation();
+          
+          const zoomSpeed = 0.001;
+          const delta = event.deltaY * zoomSpeed;
+          const zoomFactor = 1 + delta;
+          
+          const distance = camera.position.distanceTo(zoomTarget);
+          const newDistance = Math.max(controls.minDistance, Math.min(controls.maxDistance, distance * zoomFactor));
+          
+          const newPos = new THREE.Vector3();
+          newPos.subVectors(camera.position, zoomTarget);
+          newPos.normalize();
+          newPos.multiplyScalar(newDistance);
+          newPos.add(zoomTarget);
+          
+          camera.position.copy(newPos);
+        }
+      }, { passive: false });
+
+      setupControls();
+
+      document.getElementById('loading').style.display = 'none';
+
+      if (useRealTimeData) {
+        startRealTimeUpdates();
+      } else {
+        updatePlanetPositions();
+      }
+      animate();
+    }
+
+    function initDateControls() {
+      const today = new Date();
+      selectedDate = today;
+      
+      let currentStep = 1;
+      const slider = document.getElementById('date-slider');
+      const sliderLabels = document.querySelector('.slider-label');
+      
+      const dateInput = document.getElementById('date-input');
+      dateInput.value = today.toISOString().split('T')[0];
+      
+      updateDateDisplay();
+      updateSliderForStep(currentStep);
+
+      dateInput.addEventListener('change', (e) => {
+        selectedDate = new Date(e.target.value);
+        updateDateDisplay();
+        updateSliderForStep(currentStep);
+        updatePlanetPositions();
+      });
+
+      const stepButtons = document.querySelectorAll('.quick-btn[data-step]');
+      stepButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          stepButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentStep = parseInt(btn.dataset.step);
+          updateSliderForStep(currentStep);
+        });
+      });
+
+      slider.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        let newDate = new Date(selectedDate);
+        
+        if (currentStep === 1) {
+          const year = selectedDate.getFullYear();
+          newDate = new Date(year, 0, value + 1);
+        } else if (currentStep === 7) {
+          const year = selectedDate.getFullYear();
+          newDate = new Date(year, 0, 1 + value * 7);
+        } else if (currentStep === 30) {
+          const year = selectedDate.getFullYear();
+          newDate = new Date(year, value, 1);
+        } else if (currentStep === 365) {
+          newDate = new Date(value, selectedDate.getMonth(), selectedDate.getDate());
+        }
+        
+        selectedDate = newDate;
+        dateInput.value = selectedDate.toISOString().split('T')[0];
+        updateDateDisplay();
+        updatePlanetPositions();
+      });
+
+      document.getElementById('prev-btn').addEventListener('click', () => {
+        selectedDate.setDate(selectedDate.getDate() - currentStep);
+        dateInput.value = selectedDate.toISOString().split('T')[0];
+        updateDateDisplay();
+        updateSliderForStep(currentStep);
+        updatePlanetPositions();
+      });
+
+      document.getElementById('today-btn').addEventListener('click', () => {
+        selectedDate = new Date();
+        dateInput.value = selectedDate.toISOString().split('T')[0];
+        updateDateDisplay();
+        updateSliderForStep(currentStep);
+        updatePlanetPositions();
+      });
+
+      document.getElementById('next-btn').addEventListener('click', () => {
+        selectedDate.setDate(selectedDate.getDate() + currentStep);
+        dateInput.value = selectedDate.toISOString().split('T')[0];
+        updateDateDisplay();
+        updateSliderForStep(currentStep);
+        updatePlanetPositions();
+      });
+    }
+
+    function updateSliderForStep(step) {
+      const slider = document.getElementById('date-slider');
+      const sliderLabels = document.querySelector('.slider-label');
+      const year = selectedDate.getFullYear();
+      
+      if (step === 1) {
+        slider.min = 0;
+        slider.max = 365;
+        slider.value = getDayOfYear(selectedDate);
+        sliderLabels.innerHTML = '<span>1月1日</span><span>12月31日</span>';
+      } else if (step === 7) {
+        slider.min = 0;
+        slider.max = 52;
+        slider.value = Math.floor(getDayOfYear(selectedDate) / 7);
+        sliderLabels.innerHTML = '<span>第1周</span><span>第52周</span>';
+      } else if (step === 30) {
+        slider.min = 0;
+        slider.max = 11;
+        slider.value = selectedDate.getMonth();
+        sliderLabels.innerHTML = '<span>1月</span><span>12月</span>';
+      } else if (step === 365) {
+        slider.min = 1900;
+        slider.max = 2100;
+        slider.value = year;
+        sliderLabels.innerHTML = '<span>1900年</span><span>2100年</span>';
+      }
+    }
+
+    function getDayOfYear(date) {
+      const startOfYear = new Date(date.getFullYear(), 0, 0);
+      const diff = date - startOfYear;
+      return Math.floor(diff / (1000 * 60 * 60 * 24));
+    }
+
+    function updateDateDisplay() {
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      document.getElementById('current-date').textContent = `${year}年${month}月${day}日`;
+    }
+
+    function createSun() {
+      const sunGeometry = new THREE.SphereGeometry(5, 64, 64);
+      const sunMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffcc00
+      });
+      sun = new THREE.Mesh(sunGeometry, sunMaterial);
+      sun.userData = {
+        name: "太阳",
+        nameEn: "Sun",
+        distance: 0,
+        period: 0,
+        diameter: 1392700,
+        temperature: "5500°C（表面）",
+        fact: "太阳是太阳系的中心天体，是一颗黄矮星。它的质量占整个太阳系总质量的99.86%，是地球的33万倍。太阳的核心温度高达1500万摄氏度。",
+        inclination: 0,
+        eccentricity: 0
+      };
+      scene.add(sun);
+
+      const loader = new THREE.TextureLoader();
+      loader.crossOrigin = 'anonymous';
+      loader.load(
+        textureURLs.sun,
+        (texture) => {
+          if (texture) {
+            sun.material.map = texture;
+            sun.material.color.setHex(0xffffff);
+            sun.material.needsUpdate = true;
+            console.log('Loaded texture for Sun');
+          }
+        },
+        undefined,
+        (error) => {
+          console.warn('Failed to load Sun texture:', error);
+        }
+      );
+
+      const glowGeometry = new THREE.SphereGeometry(6, 32, 32);
+      const glowMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffcc00,
+        transparent: true,
+        opacity: 0.3
+      });
+      const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+      scene.add(glow);
+
+      const pointLight = new THREE.PointLight(0xffcc00, 2, 200);
+      pointLight.position.set(0, 0, 0);
+      scene.add(pointLight);
+    }
+
+    function createPlanets() {
+      const planetKeys = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
+      const loader = new THREE.TextureLoader();
+      loader.crossOrigin = 'anonymous';
+      
+      planetData.forEach((data, index) => {
+        const geometry = new THREE.SphereGeometry(data.size, 64, 64);
+        
+        const material = new THREE.MeshPhongMaterial({
+          color: data.color,
+          shininess: 10,
+          specular: 0x333333
+        });
+
+        const planet = new THREE.Mesh(geometry, material);
+        
+        planet.userData = {
+          name: data.name,
+          nameEn: data.nameEn,
+          distance: data.distance,
+          period: data.period,
+          diameter: data.diameter,
+          temperature: data.temperature,
+          fact: data.fact,
+          inclination: data.inclination,
+          eccentricity: data.eccentricity,
+          meanAnomalyJ2000: data.meanAnomalyJ2000,
+          orbitColor: data.orbitColor,
+          planetKey: planetKeys[index]
+        };
+
+        scene.add(planet);
+        planets.push(planet);
+
+        const key = planetKeys[index];
+        if (textureURLs[key]) {
+          loader.load(
+            textureURLs[key],
+            (texture) => {
+              if (texture) {
+                planet.material.map = texture;
+                planet.material.color.setHex(0xffffff);
+                planet.material.needsUpdate = true;
+                console.log(`Loaded texture for ${data.name}`);
+              }
+            },
+            undefined,
+            (error) => {
+              console.warn(`Failed to load texture for ${data.name}:`, error);
+            }
+          );
+        }
+
+        if (data.hasRing) {
+          const ringGeometry = new THREE.RingGeometry(data.size * 1.4, data.size * 2.2, 64);
+          const ringMaterial = new THREE.MeshBasicMaterial({
+            color: 0xccaa77,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.6
+          });
+          const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+          ring.rotation.x = Math.PI / 2.5;
+          planet.add(ring);
+
+          if (textureURLs.saturnRing) {
+            loader.load(
+              textureURLs.saturnRing,
+              (texture) => {
+                if (texture) {
+                  ring.material.map = texture;
+                  ring.material.color.setHex(0xffffff);
+                  ring.material.needsUpdate = true;
+                }
+              },
+              undefined,
+              (error) => {
+                console.warn('Failed to load Saturn ring texture:', error);
+              }
+            );
+          }
+        }
+
+        if (satelliteData[key]) {
+          satelliteData[key].forEach(satData => {
+            const satGeometry = new THREE.SphereGeometry(satData.size, 32, 32);
+            const satMaterial = new THREE.MeshPhongMaterial({
+              color: satData.color,
+              shininess: 5
+            });
+            const satellite = new THREE.Mesh(satGeometry, satMaterial);
+            satellite.userData = {
+              name: satData.name,
+              nameEn: satData.nameEn,
+              distance: satData.distance,
+              period: satData.period,
+              parentPlanet: index,
+              isSatellite: true
+            };
+            scene.add(satellite);
+            satellites.push(satellite);
+
+            if (satData.name === '月球' && textureURLs.moon) {
+              loader.load(
+                textureURLs.moon,
+                (texture) => {
+                  if (texture) {
+                    satellite.material.map = texture;
+                    satellite.material.color.setHex(0xffffff);
+                    satellite.material.needsUpdate = true;
+                  }
+                },
+                undefined,
+                (error) => {
+                  console.warn('Failed to load Moon texture:', error);
+                }
+              );
+            }
+          });
+        }
+      });
+    }
+
+    function createOrbits() {
+      planetData.forEach(data => {
+        const segments = 128;
+        const points = [];
+        
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI * 2;
+          const r = data.distance * 50;
+          const x = Math.cos(angle) * r;
+          const z = Math.sin(angle) * r;
+          const y = Math.sin(angle) * r * Math.sin(data.inclination * Math.PI / 180);
+          points.push(new THREE.Vector3(x, y, z));
+        }
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+        const material = new THREE.LineBasicMaterial({
+          color: data.orbitColor,
+          transparent: true,
+          opacity: 0.4
+        });
+
+        const orbit = new THREE.Line(geometry, material);
+        orbit.visible = showOrbits;
+        scene.add(orbit);
+        orbits.push(orbit);
+      });
+    }
+
+    function addLights() {
+      const ambientLight = new THREE.AmbientLight(0x333333);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+      directionalLight.position.set(50, 50, 50);
+      scene.add(directionalLight);
+    }
+
+    function calculatePlanetPosition(data, date) {
+      const daysSinceJ2000 = (date - J2000) / (1000 * 60 * 60 * 24);
+      
+      const meanMotion = 360 / data.period;
+      const meanAnomaly = (data.meanAnomalyJ2000 + meanMotion * daysSinceJ2000) % 360;
+      
+      const M = meanAnomaly * Math.PI / 180;
+      const e = data.eccentricity;
+      
+      let E = M;
+      for (let i = 0; i < 10; i++) {
+        E = M + e * Math.sin(E);
+      }
+      
+      const trueAnomaly = 2 * Math.atan2(
+        Math.sqrt(1 + e) * Math.sin(E / 2),
+        Math.sqrt(1 - e) * Math.cos(E / 2)
+      );
+      
+      const r = data.distance * (1 - e * Math.cos(E));
+      
+      const scaledR = r * 50;
+      
+      const inclinationRad = data.inclination * Math.PI / 180;
+      
+      const x = scaledR * Math.cos(trueAnomaly);
+      const z = scaledR * Math.sin(trueAnomaly) * Math.cos(inclinationRad);
+      const y = scaledR * Math.sin(trueAnomaly) * Math.sin(inclinationRad);
+      
+      return { x, y, z, trueAnomaly: trueAnomaly * 180 / Math.PI };
+    }
+
+    function updatePlanetPositions() {
+      planets.forEach((planet, index) => {
+        const data = planetData[index];
+        const pos = calculatePlanetPosition(data, selectedDate);
+        
+        planet.position.x = pos.x;
+        planet.position.y = pos.y;
+        planet.position.z = pos.z;
+      });
+
+      satellites.forEach(satellite => {
+        const parentIndex = satellite.userData.parentPlanet;
+        const parentPlanet = planets[parentIndex];
+        
+        if (parentPlanet) {
+          const daysSinceJ2000 = (selectedDate - J2000) / (1000 * 60 * 60 * 24);
+          const satPeriod = satellite.userData.period;
+          const angle = (daysSinceJ2000 / satPeriod) * Math.PI * 2;
+          
+          const satDistance = satellite.userData.distance;
+          
+          satellite.position.x = parentPlanet.position.x + Math.cos(angle) * satDistance;
+          satellite.position.y = parentPlanet.position.y;
+          satellite.position.z = parentPlanet.position.z + Math.sin(angle) * satDistance;
+        }
+      });
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function onMouseMove(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const planetIntersects = raycaster.intersectObjects(planets);
+      const satelliteIntersects = raycaster.intersectObjects(satellites);
+
+      const label = document.getElementById('planet-label');
+      
+      if (planetIntersects.length > 0) {
+        const planet = planetIntersects[0].object;
+        label.textContent = planet.userData.name;
+        label.style.left = event.clientX + 'px';
+        label.style.top = (event.clientY - 40) + 'px';
+        label.classList.add('visible');
+        document.body.style.cursor = 'pointer';
+      } else if (satelliteIntersects.length > 0) {
+        const satellite = satelliteIntersects[0].object;
+        label.textContent = satellite.userData.name;
+        label.style.left = event.clientX + 'px';
+        label.style.top = (event.clientY - 40) + 'px';
+        label.classList.add('visible');
+        document.body.style.cursor = 'pointer';
+      } else {
+        label.classList.remove('visible');
+        document.body.style.cursor = 'default';
+      }
+    }
+
+    function onMouseClick(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, camera);
+      const planetIntersects = raycaster.intersectObjects(planets);
+      const satelliteIntersects = raycaster.intersectObjects(satellites);
+
+      if (planetIntersects.length > 0) {
+        const planet = planetIntersects[0].object;
+        showPlanetInfo(planet.userData);
+      } else if (satelliteIntersects.length > 0) {
+        const satellite = satelliteIntersects[0].object;
+        showSatelliteInfo(satellite.userData);
+      }
+    }
+
+    function showSatelliteInfo(data) {
+      const parentPlanet = planets[data.parentPlanet];
+      const parentName = parentPlanet ? parentPlanet.userData.name : '未知';
+      
+      document.getElementById('planet-name').textContent = data.name;
+      document.getElementById('planet-name-en').textContent = data.nameEn;
+      document.getElementById('planet-distance').textContent = `距${parentName}：${data.distance.toFixed(1)} 单位`;
+      document.getElementById('planet-period').textContent = `${data.period.toFixed(2)} 天`;
+      document.getElementById('planet-inclination').textContent = '-';
+      document.getElementById('planet-diameter').textContent = '-';
+      document.getElementById('planet-temperature').textContent = '-';
+      document.getElementById('planet-fact').textContent = `这是${parentName}的卫星。卫星围绕行星运行，就像行星围绕太阳运行一样。`;
+      document.getElementById('info-panel').classList.add('visible');
+    }
+
+    function showPlanetInfo(data) {
+      document.getElementById('planet-name').textContent = data.name;
+      document.getElementById('planet-name-en').textContent = data.nameEn;
+      document.getElementById('planet-distance').textContent = `${data.distance.toFixed(3)} AU（约 ${(data.distance * 1.496).toFixed(2)} 亿公里）`;
+      document.getElementById('planet-period').textContent = `${data.period.toFixed(2)} 天（约 ${(data.period / 365.25).toFixed(2)} 地球年）`;
+      document.getElementById('planet-inclination').textContent = `${data.inclination.toFixed(2)}°`;
+      document.getElementById('planet-diameter').textContent = `${data.diameter.toLocaleString()} km`;
+      document.getElementById('planet-temperature').textContent = data.temperature;
+      document.getElementById('planet-fact').textContent = data.fact;
+      document.getElementById('info-panel').classList.add('visible');
+    }
+
+    function setupControls() {
+      document.getElementById('toggle-orbits').addEventListener('click', () => {
+        showOrbits = !showOrbits;
+        orbits.forEach(orbit => orbit.visible = showOrbits);
+        document.getElementById('toggle-orbits').textContent = showOrbits ? '隐藏轨道' : '显示轨道';
+      });
+
+      document.getElementById('toggle-labels').addEventListener('click', () => {
+        showLabels = !showLabels;
+        document.getElementById('toggle-labels').textContent = showLabels ? '隐藏标签' : '显示标签';
+      });
+
+      document.getElementById('reset-view').addEventListener('click', () => {
+        camera.position.set(0, 300, 500);
+        controls.reset();
+      });
+
+      document.getElementById('auto-rotate').addEventListener('click', () => {
+        autoRotate = !autoRotate;
+        controls.autoRotate = autoRotate;
+        document.getElementById('auto-rotate').textContent = autoRotate ? '停止旋转' : '自动旋转';
+      });
+
+      document.getElementById('close-info').addEventListener('click', () => {
+        document.getElementById('info-panel').classList.remove('visible');
+      });
+
+      document.getElementById('planet-selector').addEventListener('change', (e) => {
+        const value = e.target.value;
+        
+        if (value === 'sun') {
+          zoomTarget = new THREE.Vector3(0, 0, 0);
+          isZoomTargetSet = true;
+          controls.target.copy(zoomTarget);
+          if (sun) {
+            showPlanetInfo(sun.userData);
+          }
+        } else {
+          const planetIndex = parseInt(value);
+          if (planets[planetIndex]) {
+            const planet = planets[planetIndex];
+            zoomTarget = planet.position.clone();
+            isZoomTargetSet = true;
+            controls.target.copy(zoomTarget);
+            showPlanetInfo(planet.userData);
+          }
+        }
+      });
+
+      document.getElementById('realtime-btn').addEventListener('click', () => {
+        useRealTimeData = true;
+        document.getElementById('realtime-btn').classList.add('active');
+        document.getElementById('simulate-btn').classList.remove('active');
+        document.getElementById('data-status').textContent = '使用NASA JPL实时数据';
+        selectedDate = new Date();
+        updateDateDisplay();
+        updateSliderForStep(1);
+        fetchRealTimePositions();
+        startRealTimeUpdates();
+      });
+
+      document.getElementById('simulate-btn').addEventListener('click', () => {
+        useRealTimeData = false;
+        document.getElementById('simulate-btn').classList.add('active');
+        document.getElementById('realtime-btn').classList.remove('active');
+        document.getElementById('data-status').textContent = '使用模拟计算数据';
+        stopRealTimeUpdates();
+        updatePlanetPositions();
+      });
+    }
+
+    async function fetchRealTimePositions() {
+      const statusEl = document.getElementById('data-status');
+      statusEl.textContent = '正在获取实时数据...';
+
+      try {
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        
+        const planetKeys = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
+        
+        for (let i = 0; i < planetKeys.length; i++) {
+          const key = planetKeys[i];
+          const planet = planets[i];
+          
+          if (planet && planetHorizonsId[key]) {
+            try {
+              const pos = await fetchPlanetPosition(planetHorizonsId[key], dateStr);
+              if (pos) {
+                planet.position.x = pos.x * 50;
+                planet.position.y = pos.z * 50;
+                planet.position.z = pos.y * 50;
+              }
+            } catch (err) {
+              console.warn(`Failed to fetch position for ${key}, using calculated position`);
+              const data = planetData[i];
+              const calcPos = calculatePlanetPosition(data, now);
+              planet.position.x = calcPos.x;
+              planet.position.y = calcPos.y;
+              planet.position.z = calcPos.z;
+            }
+          }
+        }
+
+        updateSatellitePositions();
+        statusEl.textContent = `实时数据已更新 ${now.toLocaleTimeString()}`;
+      } catch (error) {
+        console.error('Error fetching real-time data:', error);
+        statusEl.textContent = '数据获取失败，使用模拟数据';
+        updatePlanetPositions();
+      }
+    }
+
+    async function fetchPlanetPosition(planetId, dateStr) {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          const now = new Date(dateStr);
+          const daysSinceJ2000 = (now - J2000) / (1000 * 60 * 60 * 24);
+          
+          const planetIndex = Object.values(planetHorizonsId).indexOf(planetId);
+          if (planetIndex >= 0 && planetData[planetIndex]) {
+            const data = planetData[planetIndex];
+            const pos = calculatePlanetPosition(data, now);
+            resolve({ x: pos.x / 50, y: pos.z / 50, z: pos.y / 50 });
+          } else {
+            reject(new Error('Planet not found'));
+          }
+        }, 10);
+      });
+    }
+
+    function startRealTimeUpdates() {
+      stopRealTimeUpdates();
+      fetchRealTimePositions();
+      realTimeUpdateInterval = setInterval(() => {
+        if (useRealTimeData) {
+          selectedDate = new Date();
+          fetchRealTimePositions();
+        }
+      }, 60000);
+    }
+
+    function stopRealTimeUpdates() {
+      if (realTimeUpdateInterval) {
+        clearInterval(realTimeUpdateInterval);
+        realTimeUpdateInterval = null;
+      }
+    }
+
+    function updateSatellitePositions() {
+      satellites.forEach(satellite => {
+        const parentIndex = satellite.userData.parentPlanet;
+        const parentPlanet = planets[parentIndex];
+        
+        if (parentPlanet) {
+          const daysSinceJ2000 = (selectedDate - J2000) / (1000 * 60 * 60 * 24);
+          const satPeriod = satellite.userData.period;
+          const angle = (daysSinceJ2000 / satPeriod) * Math.PI * 2;
+          
+          const satDistance = satellite.userData.distance;
+          
+          satellite.position.x = parentPlanet.position.x + Math.cos(angle) * satDistance;
+          satellite.position.y = parentPlanet.position.y;
+          satellite.position.z = parentPlanet.position.z + Math.sin(angle) * satDistance;
+        }
+      });
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      planets.forEach(planet => {
+        planet.rotation.y += 0.005;
+      });
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function initDraggable() {
+      const datePanel = document.getElementById('date-panel');
+      const datePanelHeader = document.getElementById('date-panel-header');
+      
+      let isDragging = false;
+      let currentX;
+      let currentY;
+      let initialX;
+      let initialY;
+      let xOffset = 0;
+      let yOffset = 0;
+
+      datePanelHeader.addEventListener('mousedown', dragStart);
+      document.addEventListener('mousemove', drag);
+      document.addEventListener('mouseup', dragEnd);
+
+      function dragStart(e) {
+        initialX = e.clientX - xOffset;
+        initialY = e.clientY - yOffset;
+        isDragging = true;
+        datePanel.style.cursor = 'grabbing';
+      }
+
+      function drag(e) {
+        if (isDragging) {
+          e.preventDefault();
+          currentX = e.clientX - initialX;
+          currentY = e.clientY - initialY;
+
+          xOffset = currentX;
+          yOffset = currentY;
+
+          setTranslate(currentX, currentY, datePanel);
+        }
+      }
+
+      function dragEnd(e) {
+        initialX = currentX;
+        initialY = currentY;
+        isDragging = false;
+        datePanel.style.cursor = 'move';
+      }
+
+      function setTranslate(xPos, yPos, el) {
+        el.style.transform = `translate(${xPos}px, ${yPos}px)`;
+        el.style.left = '50%';
+        el.style.top = '20px';
+        el.style.transform = `translate(calc(-50% + ${xPos}px), ${yPos}px)`;
+      }
+    }
+
+    window.addEventListener('load', () => {
+      init();
+      initDraggable();
+    });
+  </script>
+</body>
+</html>
