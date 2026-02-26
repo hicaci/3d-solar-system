@@ -465,7 +465,8 @@
       display: none;
       position: absolute;
       top: 10px;
-      right: 10px;
+      left: 50%;
+      transform: translateX(-50%);
       width: 44px;
       height: 44px;
       background: linear-gradient(135deg, rgba(0, 212, 255, 0.3), rgba(9, 9, 121, 0.3));
@@ -841,7 +842,7 @@
     </div>
 
     <div class="hint">拖动鼠标旋转视角 | 滚轮缩放 | 点击任意位置设置缩放中心 | 点击行星查看详情</div>
-    <div class="hint mobile-hint" style="display: none;">点击右上角菜单按钮打开控制面板 | 单指拖动旋转 | 双指缩放 | 点击行星查看详情 | 双击行星放大</div>
+    <div class="hint mobile-hint" style="display: none;">点击顶部菜单按钮打开控制面板 | 单指拖动旋转 | 双指缩放 | 点击行星查看详情 | 双击行星放大</div>
   </div>
 
   <div class="planet-label" id="planet-label"></div>
