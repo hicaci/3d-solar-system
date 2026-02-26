@@ -1,5 +1,25 @@
-# Dependencies
-node_modules/
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary files
+*.tmp
+*.temp
+
+# Download scripts (temporary)
+download_pluto.py
+download_pluto2.py
+create_pluto_texture.py
+process_*.py
+resize_images.py
+
+# Temporary images
+pluto_input.jpg
+2k_earth_daymap.jpg
+
+# Large directory (source images)
+large/
 
 # IDE
 .idea/
@@ -10,11 +30,3 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
-npm-debug.log*
-
-# Environment
-.env
-.env.local

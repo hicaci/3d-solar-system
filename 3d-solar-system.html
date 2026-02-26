@@ -621,9 +621,10 @@
       saturn: './image/2k_saturn.jpg',
       uranus: './image/2k_uranus.jpg',
       neptune: './image/2k_neptune.jpg',
-      pluto: 'https://www.solarsystemscope.com/textures/download/2k_pluto.jpg',
+      pluto: './image/2k_pluto.jpg',
       moon: './image/2k_moon.jpg',
-      saturnRing: './image/2k_saturn_ring_alpha.png'
+      saturnRing: './image/2k_saturn_ring_alpha.png',
+      earthNight: './image/2k_earth_nightmap.jpg'
     };
 
     const satelliteData = {
@@ -834,7 +835,15 @@
 
     function init() {
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x000000);
+      
+      // Load starfield background
+      const textureLoader = new THREE.TextureLoader();
+      textureLoader.load('./image/2k_stars_milky_way.jpg', function(texture) {
+        scene.background = texture;
+      }, undefined, function(error) {
+        // Fallback to black background if texture fails to load
+        scene.background = new THREE.Color(0x000000);
+      });
 
       camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
       camera.position.set(0, 300, 500);
@@ -847,7 +856,7 @@
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
-      controls.minDistance = 10;
+      controls.minDistance = 0.5;
       controls.maxDistance = 5000;
       controls.autoRotate = autoRotate;
       controls.autoRotateSpeed = 0.5;
@@ -1196,15 +1205,22 @@
 
     function createOrbits() {
       planetData.forEach(data => {
-        const segments = 128;
+        const segments = 256;
         const points = [];
         
+        const e = data.eccentricity;
+        const a = data.distance * 50;
+        const inclinationRad = data.inclination * Math.PI / 180;
+        
         for (let i = 0; i <= segments; i++) {
-          const angle = (i / segments) * Math.PI * 2;
-          const r = data.distance * 50;
-          const x = Math.cos(angle) * r;
-          const z = Math.sin(angle) * r;
-          const y = Math.sin(angle) * r * Math.sin(data.inclination * Math.PI / 180);
+          const trueAnomaly = (i / segments) * Math.PI * 2;
+          
+          const r = a * (1 - e * e) / (1 + e * Math.cos(trueAnomaly));
+          
+          const x = r * Math.cos(trueAnomaly);
+          const z = r * Math.sin(trueAnomaly) * Math.cos(inclinationRad);
+          const y = r * Math.sin(trueAnomaly) * Math.sin(inclinationRad);
+          
           points.push(new THREE.Vector3(x, y, z));
         }
 
@@ -1406,6 +1422,7 @@
           zoomTarget = new THREE.Vector3(0, 0, 0);
           isZoomTargetSet = true;
           controls.target.copy(zoomTarget);
+          camera.position.set(0, 300, 500);
           if (sun) {
             showPlanetInfo(sun.userData);
           }
@@ -1416,6 +1433,22 @@
             zoomTarget = planet.position.clone();
             isZoomTargetSet = true;
             controls.target.copy(zoomTarget);
+            
+            // Calculate appropriate camera distance based on planet distance
+            // Make planet occupy half of the screen
+            const data = planetData[planetIndex];
+            const planetRadius = data.size;
+            
+            // Camera distance should be about 3-4 times the planet radius for half-screen view
+            // FOV is 60 degrees, so at distance d, the visible height is about d * tan(30°) * 2 ≈ 1.15 * d
+            // For planet to occupy half screen, we need: planet_diameter / visible_height = 0.5
+            // So: 2 * radius / (1.15 * d) = 0.5 => d ≈ 3.5 * radius
+            const cameraDistance = Math.max(planetRadius * 3.5, 2);
+            
+            // Move camera to look at the planet
+            const offset = new THREE.Vector3(cameraDistance, cameraDistance * 0.5, cameraDistance);
+            camera.position.copy(zoomTarget).add(offset);
+            
             showPlanetInfo(planet.userData);
           }
         }
